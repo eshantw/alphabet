@@ -1,0 +1,1214 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>國小字母錯誤追蹤器</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @font-face {
+      font-family: 'Engtress';
+      src: url('https://fonts.cdnfonts.com/s/72886/Engtress.woff') format('woff');
+    }
+    body { font-family: 'Inter', sans-serif; background-color: #f0f4f8; }
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: #e2e8f0; border-radius: 10px; }
+    ::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 10px; }
+    ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+    .engtress-font { font-family: 'Engtress', sans-serif; }
+    
+    .letter-button { 
+      @apply flex items-center justify-center w-14 h-14 md:w-20 md:h-20 text-3xl md:text-5xl font-bold rounded-md transition-all duration-200 engtress-font; 
+    }
+    .letter-button.active { @apply bg-red-500 text-white shadow-lg; }
+    .letter-button.inactive { @apply bg-gray-200 text-gray-700 hover:bg-gray-300; }
+
+    .category-button { @apply py-2 px-4 bg-blue-500 text-white font-semibold rounded-md hover:bg-blue-600 transition-colors duration-200 shadow-md; }
+    
+    .global-button { 
+      @apply relative flex items-center justify-center w-14 h-14 md:w-16 md:h-16 text-2xl md:text-3xl font-bold rounded-xl transition-all duration-200 cursor-pointer engtress-font;
+      white-space: nowrap;
+    }
+    .global-button .count {
+      @apply absolute bottom-0 right-0 -mr-1 -mb-1 text-[0.6rem] font-bold bg-white text-gray-800 rounded-full h-4 w-4 flex items-center justify-center leading-none transform translate-x-1/2 translate-y-1/2 shadow-sm;
+    }
+    .flashcard-container { @apply flex flex-col items-center justify-center h-full; }
+    .flashcard { 
+      @apply bg-white p-8 rounded-lg shadow-xl text-blue-700 flex flex-col items-center justify-center mb-6 text-center; 
+      min-width: 250px; 
+      min-height: 250px; 
+    }
+
+    .category-pill { @apply text-xs md:text-sm px-3 py-1 rounded-full font-semibold bg-gray-100 text-gray-600 hover:bg-blue-200 hover:text-blue-800 transition-colors duration-200 cursor-pointer; }
+    .category-pill-active { @apply bg-blue-500 text-white; }
+    
+    .student-card-category-button {
+      @apply text-xs px-2 py-1 rounded-full font-semibold bg-gray-100 text-gray-600 hover:bg-blue-200 hover:text-blue-800 transition-colors duration-200 cursor-pointer;
+    }
+  </style>
+</head>
+<body class="p-4 md:p-8">
+  <div class="max-w-7xl mx-auto bg-white p-6 md:p-8 rounded-lg shadow-xl">
+    <div class="flex flex-col sm:flex-row justify-between items-center mb-6 space-y-4 sm:space-y-0">
+      <h1 class="text-3xl md:text-4xl font-extrabold text-blue-800 text-center sm:text-left">字母錯誤追蹤小幫手</h1>
+      <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 w-full sm:w-auto">
+        <select id="class-select" class="flex-grow px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+          <option value="">選擇班級</option>
+        </select>
+        <button id="add-class-button" class="py-2 px-4 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 transition-colors duration-200 shadow-md">
+          新增班級
+        </button>
+        <button id="delete-class-button" class="py-2 px-4 bg-red-500 text-white font-semibold rounded-md hover:bg-red-600 transition-colors duration-200 opacity-50 cursor-not-allowed" disabled>
+          刪除班級
+        </button>
+      </div>
+    </div>
+
+    <p class="text-gray-600 text-center mb-8">輕鬆追蹤小朋友常錯的英文字母，並查看班級整體趨勢！</p>
+    
+    <div class="p-6 bg-white rounded-lg shadow-md mb-8">
+      <h2 class="text-xl md:text-2xl font-bold text-blue-700 flex items-center">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.653-.195-1.299-.56-1.857m0 0a5.002 5.002 0 019.88 0M9 13h6" />
+        </svg>
+        學生列表
+      </h2>
+      <div id="student-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
+        <p id="no-students-message" class="text-gray-500 text-center col-span-full">請先匯入學生姓名。</p>
+      </div>
+    </div>
+
+    <div class="mb-8 p-6 bg-blue-50 rounded-lg shadow-md">
+      <div class="flex flex-col sm:flex-row justify-between items-center mb-4">
+        <h2 class="text-xl md:text-2xl font-bold text-blue-700 flex items-center mb-2 sm:mb-0">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 mr-2 text-blue-500" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M11 2a1 1 0 00-1 1v1H8a1 1 0 00-1 1v2H5a1 1 0 00-1 1v2H3a1 1 0 00-1 1v3a1 1 0 001 1h14a1 1 0 001-1v-3a1 1 0 00-1-1h-1V9a1 1 0 00-1-1h-2V6a1 1 0 00-1-1H9V3a1 1 0 00-1-1h-1zM5 9h2v2H5V9zm4 0h2v2H9V9zm4 0h2v2h-2V9zm-8 4h2v2H5v-2zm4 0h2v2H9v-2zm4 0h2v2h-2v-2z" clip-rule="evenodd" />
+          </svg>
+          字母錯誤熱點圖 (學生人數統計)
+        </h2>
+        <button id="global-practice-button" class="py-2 px-4 bg-purple-600 text-white font-semibold rounded-md hover:bg-purple-700 transition-colors duration-200 shadow-md opacity-50 cursor-not-allowed" disabled>
+          全班練習模式
+        </button>
+      </div>
+      <div id="global-letter-statistics" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6 bg-gray-50 rounded-lg shadow-md">
+      <div class="flex flex-col space-y-4">
+        <h2 class="text-xl md:text-2xl font-bold text-gray-800 flex items-center">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          匯出/匯入資料
+        </h2>
+        <button id="export-data-button" class="w-full py-2 px-4 bg-green-600 text-white font-semibold rounded-md hover:bg-green-700 transition-colors duration-200">
+          匯出資料
+        </button>
+        <div class="relative w-full">
+          <input type="file" id="import-file-input" class="hidden" accept=".json">
+          <button id="import-data-button" class="w-full py-2 px-4 bg-yellow-500 text-white font-semibold rounded-md hover:bg-yellow-600 transition-colors duration-200">
+            匯入資料
+          </button>
+        </div>
+      </div>
+
+      <div class="flex flex-col space-y-4">
+        <h2 class="text-xl md:text-2xl font-bold text-gray-800 flex items-center">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 0 11-8 0 4 4 0 018 0zM12 14v5m-3-2h6" />
+          </svg>
+          匯入學生名單
+        </h2>
+        <textarea id="student-names-input" class="w-full h-24 p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400 resize-y"
+          placeholder="請在此輸入學生姓名，每行一個&#10;例如：&#10;王小明&#10;陳小華"></textarea>
+        <button id="import-names-button" class="w-full py-3 px-4 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 transition-colors duration-200 shadow-md opacity-50 cursor-not-allowed" disabled>
+          匯入姓名
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal for adding class -->
+  <div id="add-class-modal" class="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center p-4 z-50 hidden">
+    <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm">
+      <h3 class="text-xl font-bold text-blue-700 mb-4">新增班級</h3>
+      <input type="text" id="new-class-name-input" class="w-full p-2 border border-gray-300 rounded-md mb-4 focus:outline-none focus:ring-2 focus:ring-blue-400" placeholder="請輸入班級名稱">
+      <div class="flex justify-end space-x-2">
+        <button id="cancel-add-class-button" class="py-2 px-4 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400">取消</button>
+        <button id="confirm-add-class-button" class="py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700">確定</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Generic Message Modal -->
+  <div id="message-modal" class="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center p-4 z-50 hidden">
+    <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm text-center">
+      <h3 id="message-modal-title" class="text-xl font-bold text-blue-700 mb-4"></h3>
+      <p id="message-modal-content" class="text-gray-700 mb-6"></p>
+      <button id="close-message-modal-button" class="py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700">確定</button>
+    </div>
+  </div>
+
+  <!-- Custom Confirm Modal -->
+  <div id="confirm-modal" class="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center p-4 z-50 hidden">
+    <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm text-center">
+      <h3 id="confirm-modal-title" class="text-xl font-bold text-blue-700 mb-4"></h3>
+      <p id="confirm-modal-content" class="text-gray-700 mb-6"></p>
+      <div class="flex justify-center space-x-4">
+        <button id="confirm-yes-button" class="py-2 px-4 bg-red-600 text-white rounded-md hover:bg-red-700">確定</button>
+        <button id="confirm-no-button" class="py-2 px-4 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Student Detail Modal -->
+  <div id="student-detail-modal" class="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center p-4 z-50 hidden">
+    <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
+      <div class="flex justify-between items-center mb-4">
+        <h3 id="modal-student-name" class="text-2xl font-bold text-blue-700"></h3>
+        <button id="delete-student-button" class="text-red-500 hover:text-red-700 focus:outline-none">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.205 21H7.795a2 2 0 01-1.928-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+        </button>
+      </div>
+      
+      <h4 class="text-lg font-semibold text-gray-700 mb-2">錯誤記錄：</h4>
+      <div id="modal-errors-content" class="mb-4 max-h-96 overflow-y-auto pr-2"></div>
+      <div class="mt-4">
+        <label for="student-notes" class="block text-sm font-semibold text-gray-700 mb-1">老師備註：</label>
+        <textarea id="student-notes" class="w-full h-16 p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400 resize-y" placeholder="例如：書寫時常將'p'寫反，需加強練習。"></textarea>
+      </div>
+      
+      <div class="flex justify-end space-x-2 mt-4">
+        <button id="start-quiz-button" class="py-2 px-4 bg-green-600 text-white rounded-md hover:bg-green-700 font-semibold shadow-md">
+          進入測驗模式
+        </button>
+        <button id="practice-errors-button" class="py-2 px-4 bg-purple-600 text-white rounded-md hover:bg-purple-700 font-semibold shadow-md opacity-50 cursor-not-allowed" disabled>
+          練習錯誤字母
+        </button>
+        <button onclick="closeStudentDetailModal()" class="py-2 px-4 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Global Stats Modal -->
+  <div id="global-stats-modal" class="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center p-4 z-50 hidden">
+    <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
+      <h3 id="global-modal-title" class="text-2xl font-bold text-blue-700 mb-4"></h3>
+      <div id="global-modal-content" class="mb-6 max-h-96 overflow-y-auto pr-2"></div>
+      <button id="close-global-modal-button" class="w-full py-3 px-4 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 transition-colors duration-200 mt-4">
+        關閉
+      </button>
+    </div>
+  </div>
+
+  <!-- Practice / Quiz Modal -->
+  <div id="practice-modal" class="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center p-4 z-50 hidden">
+    <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-lg text-center h-[90vh] md:h-auto flex flex-col justify-between">
+      <div>
+        <h3 id="practice-title" class="text-2xl font-bold text-blue-700 mb-4"></h3>
+        <p id="practice-subtitle" class="text-lg text-gray-600 mb-6"></p>
+        <div class="flex flex-wrap justify-center gap-2 mb-4">
+          <button class="category-button quiz-category-button" data-quiz-category="pronunciation_capital_name">念大寫字母名</button>
+          <button class="category-button quiz-category-button" data-quiz-category="pronunciation_lowercase_name">念小寫字母名</button>
+          <button class="category-button quiz-category-button" data-quiz-category="pronunciation_sound">念字母音</button>
+        </div>
+      </div>
+      <div id="flashcard-container" class="flex flex-grow items-center justify-center">
+        <div id="flashcard" class="flashcard select-none w-full"></div>
+      </div>
+      <div class="flex flex-col space-y-4">
+        <div class="flex space-x-4">
+          <button id="correct-button" class="flex-1 py-3 px-6 bg-green-500 text-white font-bold text-xl md:text-2xl rounded-md hover:bg-green-600 transition-colors duration-200 shadow-lg">
+            O
+          </button>
+          <button id="incorrect-button" class="flex-1 py-3 px-6 bg-red-500 text-white font-bold text-xl md:text-2xl rounded-md hover:bg-red-600 transition-colors duration-200 shadow-lg">
+            X
+          </button>
+        </div>
+        <button id="close-practice-button" class="w-full py-3 px-4 bg-gray-400 text-white font-semibold rounded-md hover:bg-gray-500 transition-colors duration-200">
+          關閉練習
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Letter Selection Modal -->
+  <div id="letter-selection-modal" class="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center p-4 z-50 hidden">
+    <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-xl">
+      <div class="flex justify-between items-center mb-4">
+        <h3 id="selection-modal-title" class="text-xl md:text-2xl font-bold text-blue-700"></h3>
+        <button onclick="closeLetterSelectionModal()" class="text-gray-500 hover:text-gray-700 focus:outline-none">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      
+      <div id="letter-grid" class="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2 mb-6"></div>
+      
+      <div id="selected-letters-display" class="hidden">
+        <p class="text-sm font-semibold text-gray-700 mb-2">已選取的字母：</p>
+        <div id="selected-letters-pills" class="flex flex-wrap gap-2"></div>
+      </div>
+
+      <div class="flex justify-end space-x-2 mt-4">
+        <button id="cancel-selection-button-modal" class="py-2 px-4 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400">取消</button>
+        <button id="save-selection-button-modal" class="py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 opacity-50 cursor-not-allowed" disabled>
+          儲存錯誤
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, collection, doc, onSnapshot, setDoc, deleteDoc, runTransaction, writeBatch, getDocs, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    window.addEventListener('load', () => {
+      setLogLevel('error');
+
+      const userFirebaseConfig = {
+        apiKey: "AIzaSyB-uWLq65_JMFoEelySG5Z-w9z-NxPWK3Q",
+        authDomain: "alphabet-e8aaf.firebaseapp.com",
+        projectId: "alphabet-e8aaf",
+        storageBucket: "alphabet-e8aaf.firebasestorage.app",
+        messagingSenderId: "792965395547",
+        appId: "1:792965395547:web:45e00e270e42ee985abb7e",
+        measurementId: "G-KE3W12FLZF"
+      };
+
+      let firebaseConfig = (typeof __firebase_config !== 'undefined') ? JSON.parse(__firebase_config) : userFirebaseConfig;
+      let appId = (typeof __app_id !== 'undefined') ? __app_id : 'default-class-tracker'; 
+      let initialAuthToken = (typeof __initial_auth_token !== 'undefined') ? __initial_auth_token : null;
+
+      const app = initializeApp(firebaseConfig);
+      const db = getFirestore(app);
+      const auth = getAuth(app);
+
+      // UI 元素
+      const studentNamesInput = document.getElementById('student-names-input');
+      const importNamesButton = document.getElementById('import-names-button');
+      const studentListDiv = document.getElementById('student-list');
+      const globalLetterStatisticsDiv = document.getElementById('global-letter-statistics');
+      const exportDataButton = document.getElementById('export-data-button');
+      const importDataButton = document.getElementById('import-data-button');
+      const importFileInput = document.getElementById('import-file-input');
+      const globalPracticeButton = document.getElementById('global-practice-button');
+      const classSelect = document.getElementById('class-select');
+      const addClassButton = document.getElementById('add-class-button');
+      const deleteClassButton = document.getElementById('delete-class-button');
+      
+      const studentDetailModal = document.getElementById('student-detail-modal');
+      const modalStudentName = document.getElementById('modal-student-name');
+      const studentNotesTextarea = document.getElementById('student-notes');
+      const deleteStudentButton = document.getElementById('delete-student-button');
+      const modalErrorsContent = document.getElementById('modal-errors-content');
+      const startQuizButton = document.getElementById('start-quiz-button');
+      const practiceErrorsButton = document.getElementById('practice-errors-button');
+      
+      const globalStatsModal = document.getElementById('global-stats-modal');
+      const globalModalTitle = document.getElementById('global-modal-title');
+      const globalModalContent = document.getElementById('global-modal-content');
+      const closeGlobalModalButton = document.getElementById('close-global-modal-button');
+
+      const practiceModal = document.getElementById('practice-modal');
+      const practiceTitle = document.getElementById('practice-title');
+      const practiceSubtitle = document.getElementById('practice-subtitle');
+      const flashcard = document.getElementById('flashcard');
+      const correctButton = document.getElementById('correct-button');
+      const incorrectButton = document.getElementById('incorrect-button');
+      const closePracticeButton = document.getElementById('close-practice-button');
+      const quizCategoryButtons = document.querySelectorAll('.quiz-category-button');
+
+      const addClassModal = document.getElementById('add-class-modal');
+      const newClassNameInput = document.getElementById('new-class-name-input');
+      const confirmAddClassButton = document.getElementById('confirm-add-class-button');
+      const cancelAddClassButton = document.getElementById('cancel-add-class-button');
+
+      const messageModal = document.getElementById('message-modal');
+      const messageModalTitle = document.getElementById('message-modal-title');
+      const messageModalContent = document.getElementById('message-modal-content');
+      const closeMessageModalButton = document.getElementById('close-message-modal-button');
+
+      const confirmModal = document.getElementById('confirm-modal');
+      const confirmModalTitle = document.getElementById('confirm-modal-title');
+      const confirmModalContent = document.getElementById('confirm-modal-content');
+      const confirmYesButton = document.getElementById('confirm-yes-button');
+      const confirmNoButton = document.getElementById('confirm-no-button');
+
+      const letterSelectionModal = document.getElementById('letter-selection-modal');
+      const selectionModalTitle = document.getElementById('selection-modal-title');
+      const letterGrid = document.getElementById('letter-grid');
+      const selectedLettersDisplay = document.getElementById('selected-letters-display');
+      const selectedLettersPills = document.getElementById('selected-letters-pills');
+      const cancelSelectionModalButton = document.getElementById('cancel-selection-button-modal');
+      const saveSelectionModalButton = document.getElementById('save-selection-button-modal');
+
+      const errorCategories = {
+        pronunciation_capital_name: { zh: '念大寫字母名', type: 'capital', mode: 'quiz' },
+        pronunciation_lowercase_name: { zh: '念小寫字母名', type: 'lowercase', mode: 'quiz' },
+        pronunciation_sound: { zh: '念字母音', type: 'lowercase', mode: 'quiz' },
+        listening_uppercase: { zh: '聽寫大寫', type: 'capital', mode: 'record' },
+        listening_lowercase: { zh: '聽寫小寫', type: 'lowercase', mode: 'record' }
+      };
+      
+      let allClasses = {};
+      let currentClassId = null;
+      let tempSelectedLetters = new Set();
+      let currentStudentForSelection = null;
+      let currentSelectedCategory = null;
+      let currentQuizStudent = null;
+      let currentQuizCategory = null;
+      let quizLetters = [];
+      let currentQuizIndex = 0;
+
+      const allLetters = Array.from({ length: 26 }, (_, i) => String.fromCharCode(65 + i))
+        .concat(Array.from({ length: 26 }, (_, i) => String.fromCharCode(97 + i)));
+      const allCapitalLetters = allLetters.slice(0, 26);
+      const allLowercaseLetters = allLetters.slice(26);
+
+      // --- 已切換為 jsDelivr CDN 圖床 ---
+      function updateFlashcardDisplay(letter) {
+        const isUpper = (letter === letter.toUpperCase());
+        const expectedFileName = `${isUpper ? '大寫' : '小寫'}${letter}.jpg`;
+        const imgUrl = `https://cdn.jsdelivr.net/gh/eshantw/alphabet/letters/${encodeURIComponent(expectedFileName)}`;
+
+        flashcard.innerHTML = '';
+        const img = document.createElement('img');
+        img.src = imgUrl;
+        img.alt = letter;
+        img.className = 'w-full h-[40vh] md:h-[50vh] object-contain mx-auto block drop-shadow-md rounded-lg';
+        
+        img.onerror = () => {
+          flashcard.innerHTML = `
+            <div class="flex flex-col items-center">
+              <span class="text-2xl text-red-500 mb-2 font-bold">找不到圖片</span>
+              <span class="text-lg text-gray-500">請確認 GitHub 的 letters 資料夾中是否有：<br><b>${expectedFileName}</b></span>
+            </div>`;
+        };
+        flashcard.appendChild(img);
+      }
+
+      onAuthStateChanged(auth, async (user) => {
+        if (user) {
+          setupFirestoreListeners();
+        } else {
+          try {
+            if (initialAuthToken) {
+              await signInWithCustomToken(auth, initialAuthToken);
+            } else {
+              await signInAnonymously(auth);
+            }
+          } catch (error) {
+            console.error("Firebase 認證失敗:", error);
+            showMessage('認證錯誤', `無法登入：${error.message}`);
+          }
+        }
+      });
+
+      function setupFirestoreListeners() {
+        const classesCollection = collection(db, `artifacts/${appId}/public/data/classes`);
+        onSnapshot(classesCollection, (querySnapshot) => {
+          const fetchedClasses = {};
+          querySnapshot.forEach((doc) => {
+            const classData = doc.data();
+            const students = Array.isArray(classData.students) ? classData.students : [];
+            fetchedClasses[doc.id] = {
+              id: doc.id,
+              name: classData.name || '未命名班級',
+              students: students,
+              globalLetterErrors: {},
+              lastUpdated: classData.lastUpdated ? classData.lastUpdated.toDate() : null
+            };
+          });
+          allClasses = fetchedClasses;
+          renderClassSelect();
+          
+          if (!currentClassId || !allClasses[currentClassId]) {
+            currentClassId = Object.keys(allClasses).length > 0 ? Object.keys(allClasses)[0] : null;
+          }
+          classSelect.value = currentClassId || "";
+          switchClass(currentClassId);
+        });
+      }
+
+      function showMessage(title, message) {
+        messageModalTitle.textContent = title;
+        messageModalContent.textContent = message;
+        messageModal.classList.remove('hidden');
+      }
+
+      function showConfirm(title, message) {
+        return new Promise((resolve) => {
+          confirmModalTitle.textContent = title;
+          confirmModalContent.textContent = message;
+          confirmModal.classList.remove('hidden');
+          confirmYesButton.onclick = () => {
+            confirmModal.classList.add('hidden');
+            resolve(true);
+          };
+          confirmNoButton.onclick = () => {
+            confirmModal.classList.add('hidden');
+            resolve(false);
+          };
+        });
+      }
+
+      function getBackgroundColor(count) {
+        const colorStops = {
+          0: 'bg-gray-200',
+          1: 'bg-blue-200',
+          2: 'bg-blue-300',
+          3: 'bg-green-300',
+          4: 'bg-yellow-300',
+          5: 'bg-orange-400',
+          10: 'bg-red-500'
+        };
+        const sortedStops = Object.keys(colorStops).sort((a,b) => a-b);
+        let color = 'bg-red-700';
+        for (let i = 0; i < sortedStops.length; i++) {
+          if (count <= sortedStops[i]) {
+            color = colorStops[sortedStops[i]];
+            break;
+          }
+        }
+        return color;
+      }
+
+      function renderClassSelect() {
+        classSelect.innerHTML = '<option value="">選擇班級</option>';
+        Object.keys(allClasses).forEach(classId => {
+          const option = document.createElement('option');
+          option.value = classId;
+          option.textContent = allClasses[classId].name;
+          option.selected = (classId === currentClassId);
+          classSelect.appendChild(option);
+        });
+      }
+      
+      function switchClass(classId) {
+        currentClassId = classId;
+        if (classId && allClasses[classId]) {
+          const students = allClasses[classId].students;
+          const newGlobalLetterErrors = {};
+          Object.keys(errorCategories).forEach(cat => newGlobalLetterErrors[cat] = {});
+          
+          students.forEach(student => {
+            const studentErrors = student.errors || {};
+            Object.keys(studentErrors).forEach(cat => {
+              Object.keys(studentErrors[cat] || {}).forEach(letter => {
+                if(studentErrors[cat][letter] > 0) {
+                  newGlobalLetterErrors[cat][letter] = newGlobalLetterErrors[cat][letter] || new Set();
+                  newGlobalLetterErrors[cat][letter].add(student.id);
+                }
+              });
+            });
+          });
+          allClasses[classId].globalLetterErrors = newGlobalLetterErrors;
+
+          renderAllStudents();
+          renderGlobalLetterStatistics();
+        } else {
+          studentListDiv.innerHTML = '<p id="no-students-message" class="text-gray-500 text-center col-span-full">請先選擇或新增班級。</p>';
+          globalLetterStatisticsDiv.innerHTML = '<p class="text-gray-400 text-center col-span-full">請先選擇或新增班級。</p>';
+        }
+        updateButtonStates();
+      }
+
+      function renderAllStudents() {
+        studentListDiv.innerHTML = '';
+        const currentClass = allClasses[currentClassId];
+        if (!currentClass || currentClass.students.length === 0) {
+          studentListDiv.innerHTML = '<p id="no-students-message" class="text-gray-500 text-center col-span-full">請先匯入學生姓名。</p>';
+        } else {
+          currentClass.students.forEach(student => {
+            renderStudentCard(student);
+          });
+        }
+      }
+      
+      function renderStudentCard(student) {
+        const studentCard = document.createElement('div');
+        studentCard.id = `student-${student.id}`;
+        studentCard.className = 'bg-white border border-gray-200 rounded-lg p-5 shadow-sm hover:shadow-md transition-shadow duration-200';
+
+        const nameHeader = document.createElement('div');
+        nameHeader.className = 'flex justify-between items-center mb-2';
+
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'text-lg md:text-xl font-bold text-blue-600 hover:text-blue-800 transition-colors duration-200 cursor-pointer';
+        nameSpan.textContent = student.name;
+        nameSpan.addEventListener('click', () => openStudentDetailModal(student));
+        
+        const totalErrorsCount = Object.values(student.errors || {}).flatMap(obj => Object.values(obj)).reduce((sum, count) => sum + count, 0);
+        const totalErrorsSpan = document.createElement('span');
+        totalErrorsSpan.className = `text-xs md:text-sm px-2 py-1 rounded-full font-semibold ${totalErrorsCount > 0 ? 'bg-red-200 text-red-800' : 'bg-green-200 text-green-800'}`;
+        totalErrorsSpan.textContent = `總錯誤: ${totalErrorsCount}`;
+        
+        nameHeader.appendChild(nameSpan);
+        nameHeader.appendChild(totalErrorsSpan);
+        studentCard.appendChild(nameHeader);
+
+        const buttonContainer = document.createElement('div');
+        buttonContainer.className = 'flex flex-wrap gap-2 mt-2';
+        
+        Object.keys(errorCategories).forEach(categoryKey => {
+          const btn = document.createElement('button');
+          btn.className = 'student-card-category-button';
+          btn.textContent = errorCategories[categoryKey].zh;
+          btn.addEventListener('click', () => openLetterSelectionModal(student, categoryKey));
+          buttonContainer.appendChild(btn);
+        });
+        
+        studentCard.appendChild(buttonContainer);
+        studentListDiv.appendChild(studentCard);
+      }
+
+      startQuizButton.addEventListener('click', () => {
+        studentDetailModal.classList.add('hidden');
+        openQuizModal(currentStudentForSelection);
+      });
+      
+      practiceErrorsButton.addEventListener('click', () => {
+        studentDetailModal.classList.add('hidden');
+        startPracticeMode(currentStudentForSelection);
+      });
+      
+      globalPracticeButton.addEventListener('click', () => startGlobalPracticeMode());
+      
+      correctButton.addEventListener('click', () => {
+        if (practiceModal.dataset.mode === 'quiz') {
+          nextQuizLetter();
+        } else if (practiceModal.dataset.mode === 'practice') {
+          const currentLetter = quizLetters[currentQuizIndex];
+          const incorrectCount = currentQuizStudent?.errors?.[currentQuizCategory]?.[currentLetter] || 0;
+          if (incorrectCount > 0) {
+            removeLetterError(currentQuizStudent.id, currentQuizCategory, currentLetter);
+          }
+          nextQuizLetter();
+        } else if (practiceModal.dataset.mode === 'global-practice') {
+          nextQuizLetter();
+        }
+      });
+      
+      incorrectButton.addEventListener('click', async () => {
+        const currentLetter = quizLetters[currentQuizIndex];
+        
+        flashcard.style.transition = 'background-color 0.2s ease-in-out';
+        flashcard.style.backgroundColor = '#fca5a5'; 
+
+        setTimeout(async () => {
+          flashcard.style.backgroundColor = ''; 
+          flashcard.style.transition = '';
+
+          if (practiceModal.dataset.mode === 'quiz') {
+            const selectedLetters = new Set([currentLetter]);
+            await updateLetterErrors(currentQuizStudent.id, currentQuizCategory, selectedLetters);
+            nextQuizLetter();
+          } else if (practiceModal.dataset.mode === 'practice') {
+            let categoryToUpdate = 'pronunciation_capital_name'; 
+            for (const cat of Object.keys(errorCategories)) {
+              if ((currentQuizStudent.errors[cat] || {})[currentLetter] > 0) {
+                categoryToUpdate = cat;
+                break;
+              }
+            }
+            const selectedLetters = new Set([currentLetter]);
+            await updateLetterErrors(currentQuizStudent.id, categoryToUpdate, selectedLetters);
+            
+            const reinsertIndex = currentQuizIndex + 1 + Math.floor(Math.random() * (quizLetters.length - (currentQuizIndex + 1)));
+            quizLetters.splice(reinsertIndex, 0, currentLetter);
+            nextQuizLetter();
+          } else if (practiceModal.dataset.mode === 'global-practice') {
+            const reinsertIndex = currentQuizIndex + 1 + Math.floor(Math.random() * (quizLetters.length - (currentQuizIndex + 1)));
+            quizLetters.splice(reinsertIndex, 0, currentLetter);
+            nextQuizLetter();
+          }
+        }, 250); 
+      });
+
+      async function removeLetterError(studentId, category, letter) {
+        if (!currentClassId) return;
+        const classDocRef = doc(db, `artifacts/${appId}/public/data/classes`, currentClassId);
+        try {
+          await runTransaction(db, async (transaction) => {
+            const classDoc = await transaction.get(classDocRef);
+            if (!classDoc.exists()) throw "Class does not exist!";
+            const classData = classDoc.data();
+            const students = classData.students || [];
+            const studentIndex = students.findIndex(s => s.id === studentId);
+            
+            if (studentIndex > -1) {
+              const updatedStudents = [...students];
+              const student = updatedStudents[studentIndex];
+              student.errors = student.errors || {};
+              student.errors[category] = student.errors[category] || {};
+              if (student.errors[category][letter] > 0) {
+                student.errors[category][letter]--;
+                if (student.errors[category][letter] === 0) {
+                  delete student.errors[category][letter]; 
+                }
+              }
+              transaction.update(classDocRef, { students: updatedStudents, lastUpdated: new Date() });
+            }
+          });
+        } catch (e) {
+          console.error("移除錯誤次數失敗：", e);
+        }
+      }
+      
+      function nextQuizLetter() {
+        currentQuizIndex++;
+        if (currentQuizIndex < quizLetters.length) {
+          updateFlashcardDisplay(quizLetters[currentQuizIndex]);
+          practiceSubtitle.textContent = `第 ${currentQuizIndex + 1} / ${quizLetters.length} 個字母`;
+        } else {
+          practiceModal.classList.add('hidden');
+          showMessage('測驗完成', `已完成 ${practiceModal.dataset.mode === 'global-practice' ? '全班' : currentQuizStudent.name} 的測驗！`);
+        }
+      }
+      
+      closePracticeButton.addEventListener('click', () => {
+        practiceModal.classList.add('hidden');
+        currentQuizStudent = null;
+        currentQuizCategory = null;
+      });
+
+      quizCategoryButtons.forEach(button => {
+        button.addEventListener('click', (e) => {
+          const category = e.target.dataset.quizCategory;
+          startQuizMode(currentQuizStudent, category);
+        });
+      });
+      
+      function openQuizModal(student) {
+        practiceModal.dataset.mode = 'quiz';
+        currentQuizStudent = student;
+        practiceTitle.textContent = `${student.name} 的測驗`;
+        practiceSubtitle.textContent = '請選擇一種測驗類別：';
+        flashcard.innerHTML = '';
+        
+        flashcard.classList.add('hidden');
+        correctButton.classList.add('hidden');
+        incorrectButton.classList.add('hidden');
+        quizCategoryButtons.forEach(btn => btn.classList.remove('hidden'));
+        practiceModal.classList.remove('hidden');
+      }
+
+      function startQuizMode(student, category) {
+        currentQuizCategory = category;
+        const categoryType = errorCategories[category].type;
+        const lettersToQuiz = categoryType === 'capital' ? allCapitalLetters : allLowercaseLetters;
+        
+        quizLetters = [...lettersToQuiz].sort(() => Math.random() - 0.5);
+        currentQuizIndex = 0;
+        
+        if (quizLetters.length > 0) {
+          practiceSubtitle.textContent = `第 1 / ${quizLetters.length} 個字母`;
+          updateFlashcardDisplay(quizLetters[0]);
+          flashcard.classList.remove('hidden');
+          correctButton.classList.remove('hidden');
+          incorrectButton.classList.remove('hidden');
+          quizCategoryButtons.forEach(btn => btn.classList.add('hidden'));
+        } else {
+          practiceModal.classList.add('hidden');
+          showMessage('測驗結束', '無法生成測驗，請稍後再試。');
+        }
+        practiceModal.classList.remove('hidden');
+      }
+      
+      function startPracticeMode(student) {
+        practiceModal.dataset.mode = 'practice';
+        currentQuizStudent = student;
+        practiceTitle.textContent = `${student.name} 的錯誤字母練習`;
+        
+        const incorrectLetters = new Set();
+        const studentErrors = student.errors || {};
+        Object.keys(studentErrors).forEach(category => {
+          Object.keys(studentErrors[category] || {}).forEach(letter => {
+            if (studentErrors[category][letter] > 0) incorrectLetters.add(letter);
+          });
+        });
+        
+        const lettersArray = Array.from(incorrectLetters).sort(() => Math.random() - 0.5);
+        if (lettersArray.length === 0) {
+          showMessage('練習結束', '太棒了！目前沒有任何錯誤字母。');
+          return;
+        }
+        
+        quizLetters = lettersArray;
+        currentQuizIndex = 0;
+        
+        practiceSubtitle.textContent = `第 1 / ${quizLetters.length} 個字母`;
+        updateFlashcardDisplay(quizLetters[0]);
+        flashcard.classList.remove('hidden');
+        correctButton.classList.remove('hidden');
+        incorrectButton.classList.remove('hidden');
+        quizCategoryButtons.forEach(btn => btn.classList.add('hidden')); 
+        practiceModal.classList.remove('hidden');
+      }
+
+      function startGlobalPracticeMode() {
+        practiceModal.dataset.mode = 'global-practice';
+        currentQuizStudent = null;
+        practiceTitle.textContent = '全班錯誤字母練習';
+
+        const allIncorrectLetters = new Set();
+        const currentClass = allClasses[currentClassId];
+        if (!currentClass || !currentClass.students) {
+          showMessage('錯誤', '請先匯入學生名單。');
+          return;
+        }
+        
+        currentClass.students.forEach(student => {
+          const studentErrors = student.errors || {};
+          Object.keys(studentErrors).forEach(category => {
+            Object.keys(studentErrors[category] || {}).forEach(letter => {
+              if (studentErrors[category][letter] > 0) allIncorrectLetters.add(letter);
+            });
+          });
+        });
+        
+        const lettersArray = Array.from(allIncorrectLetters).sort(() => Math.random() - 0.5);
+        if (lettersArray.length === 0) {
+          showMessage('練習結束', '太棒了！全班目前沒有任何錯誤字母。');
+          return;
+        }
+        
+        quizLetters = lettersArray;
+        currentQuizIndex = 0;
+        
+        practiceSubtitle.textContent = `第 1 / ${quizLetters.length} 個字母`;
+        updateFlashcardDisplay(quizLetters[0]);
+        flashcard.classList.remove('hidden');
+        correctButton.classList.remove('hidden');
+        incorrectButton.classList.remove('hidden');
+        quizCategoryButtons.forEach(btn => btn.classList.add('hidden'));
+        practiceModal.classList.remove('hidden');
+      }
+
+      function openStudentDetailModal(student) {
+        currentStudentForSelection = student;
+        modalStudentName.textContent = student.name;
+        studentNotesTextarea.value = student.notes || '';
+        deleteStudentButton.onclick = () => deleteStudent(student.id);
+        
+        const hasErrors = Object.values(student.errors || {}).some(categoryErrors => 
+          Object.values(categoryErrors || {}).some(count => count > 0)
+        );
+        practiceErrorsButton.disabled = !hasErrors;
+        practiceErrorsButton.classList.toggle('opacity-50', !hasErrors);
+        practiceErrorsButton.classList.toggle('cursor-not-allowed', !hasErrors);
+        
+        modalErrorsContent.innerHTML = '';
+        
+        Object.entries(errorCategories).forEach(([catKey, catData]) => {
+          const errors = Object.entries((student.errors || {})[catKey] || {}).filter(([letter, count]) => count > 0);
+          if (errors.length > 0) {
+            const categoryDiv = document.createElement('div');
+            categoryDiv.className = 'mb-4';
+            const categoryTitle = document.createElement('h4');
+            categoryTitle.className = 'text-lg font-semibold text-gray-700 mb-2';
+            categoryTitle.textContent = catData.zh;
+            categoryDiv.appendChild(categoryTitle);
+            
+            const errorsGrid = document.createElement('div');
+            errorsGrid.className = 'flex flex-wrap gap-2';
+            errors.forEach(([letter, count]) => {
+              const pill = document.createElement('span');
+              pill.className = 'bg-red-200 text-red-800 text-sm font-semibold px-3 py-1 rounded-full';
+              pill.textContent = `${letter}: ${count}`;
+              errorsGrid.appendChild(pill);
+            });
+            categoryDiv.appendChild(errorsGrid);
+            modalErrorsContent.appendChild(categoryDiv);
+          }
+        });
+
+        if (modalErrorsContent.innerHTML === '') {
+          const p = document.createElement('p');
+          p.className = 'text-gray-500';
+          p.textContent = '尚無錯誤記錄。';
+          modalErrorsContent.appendChild(p);
+        }
+
+        studentDetailModal.classList.remove('hidden');
+      }
+      
+      window.closeStudentDetailModal = () => {
+        studentDetailModal.classList.add('hidden');
+      };
+
+      function renderGlobalLetterStatistics() {
+        if (!currentClassId) return;
+        const globalLetterErrors = allClasses[currentClassId].globalLetterErrors;
+        globalLetterStatisticsDiv.innerHTML = '';
+        Object.keys(errorCategories).forEach(catKey => {
+          const categoryDiv = document.createElement('div');
+          categoryDiv.className = 'p-4 rounded-lg bg-white shadow-sm';
+          const title = document.createElement('h3');
+          title.className = 'font-bold text-gray-700 mb-2';
+          title.textContent = `${errorCategories[catKey].zh}`;
+          categoryDiv.appendChild(title);
+          
+          const buttonContainer = document.createElement('div');
+          buttonContainer.className = 'grid grid-cols-5 gap-2';
+
+          const allCategoryLetters = errorCategories[catKey].type === 'capital' ? allCapitalLetters : allLowercaseLetters;
+          
+          allCategoryLetters.forEach(letter => {
+            const studentCount = globalLetterErrors?.[catKey]?.[letter]?.size || 0;
+            const button = document.createElement('button');
+            const bgColor = getBackgroundColor(studentCount);
+            button.className = `global-button ${bgColor} text-gray-800 hover:bg-opacity-80 transition-opacity`;
+            button.textContent = letter;
+            button.title = `${letter}: ${studentCount} 位學生`;
+            button.addEventListener('click', () => showGlobalStatsModal(catKey, letter));
+
+            if (studentCount > 0) {
+              const countSpan = document.createElement('span');
+              countSpan.className = 'count';
+              countSpan.textContent = studentCount;
+              button.appendChild(countSpan);
+            }
+            buttonContainer.appendChild(button);
+          });
+
+          categoryDiv.appendChild(buttonContainer);
+          globalLetterStatisticsDiv.appendChild(categoryDiv);
+        });
+      }
+      
+      async function updateLetterErrors(studentId, category, selectedLetters) {
+        if (!currentClassId) return;
+        const classDocRef = doc(db, `artifacts/${appId}/public/data/classes`, currentClassId);
+        try {
+          await runTransaction(db, async (transaction) => {
+            const classDoc = await transaction.get(classDocRef);
+            if (!classDoc.exists()) throw "Class does not exist!";
+            const classData = classDoc.data();
+            const students = classData.students || [];
+            const studentIndex = students.findIndex(s => s.id === studentId);
+            
+            if (studentIndex > -1) {
+              const student = students[studentIndex];
+              student.errors = student.errors || {};
+              student.errors[category] = student.errors[category] || {};
+
+              for (const letter of selectedLetters) {
+                student.errors[category][letter] = (student.errors[category][letter] || 0) + 1;
+              }
+              
+              student.lastUpdated = new Date();
+              const updatedStudents = [...students];
+              updatedStudents[studentIndex] = student;
+              transaction.update(classDocRef, { students: updatedStudents, lastUpdated: new Date() });
+            }
+          });
+        } catch (e) {
+          console.error("更新錯誤次數失敗：", e);
+        }
+      }
+      
+      function showGlobalStatsModal(category, letter) {
+        const studentsWithErrors = allClasses?.[currentClassId]?.globalLetterErrors?.[category]?.[letter] || new Set();
+        globalModalTitle.textContent = `${errorCategories[category].zh}: ${letter}`;
+        globalModalContent.innerHTML = '';
+        
+        if (studentsWithErrors.size > 0) {
+          const list = document.createElement('ul');
+          list.className = 'list-disc list-inside space-y-1 text-gray-700';
+          studentsWithErrors.forEach(studentId => {
+            const student = allClasses?.[currentClassId]?.students.find(s => s.id === studentId);
+            if (student) {
+              const listItem = document.createElement('li');
+              listItem.textContent = student.name;
+              list.appendChild(listItem);
+            }
+          });
+          globalModalContent.appendChild(list);
+        } else {
+          const p = document.createElement('p');
+          p.className = 'text-gray-500';
+          p.textContent = '此字母沒有錯誤記錄。';
+          globalModalContent.appendChild(p);
+        }
+        globalStatsModal.classList.remove('hidden');
+      }
+
+      function updateButtonStates() {
+        const hasClass = currentClassId !== null && allClasses[currentClassId];
+        const hasStudents = hasClass && allClasses[currentClassId].students && allClasses[currentClassId].students.length > 0;
+        
+        importNamesButton.disabled = !hasClass;
+        importNamesButton.classList.toggle('opacity-50', !hasClass);
+        importNamesButton.classList.toggle('cursor-not-allowed', !hasClass);
+
+        deleteClassButton.disabled = !hasClass;
+        deleteClassButton.classList.toggle('opacity-50', !hasClass);
+        deleteClassButton.classList.toggle('cursor-not-allowed', !hasClass);
+
+        globalPracticeButton.disabled = !hasStudents;
+        globalPracticeButton.classList.toggle('opacity-50', !hasStudents);
+        globalPracticeButton.classList.toggle('cursor-not-allowed', !hasStudents);
+      }
+      
+      studentNamesInput.addEventListener('input', () => {
+        const names = studentNamesInput.value.trim();
+        importNamesButton.disabled = !names || !currentClassId;
+        importNamesButton.classList.toggle('opacity-50', !names || !currentClassId);
+        importNamesButton.classList.toggle('cursor-not-allowed', !names || !currentClassId);
+      });
+
+      classSelect.addEventListener('change', (e) => switchClass(e.target.value));
+      
+      studentNotesTextarea.addEventListener('change', async () => {
+        const studentId = currentStudentForSelection?.id;
+        if (!studentId || !currentClassId) return;
+        const classDocRef = doc(db, `artifacts/${appId}/public/data/classes`, currentClassId);
+        try {
+          await runTransaction(db, async (transaction) => {
+            const classDoc = await transaction.get(classDocRef);
+            const updatedStudents = [...classDoc.data().students];
+            const studentIndex = updatedStudents.findIndex(s => s.id === studentId);
+            if (studentIndex > -1) {
+              updatedStudents[studentIndex].notes = studentNotesTextarea.value;
+              transaction.update(classDocRef, { students: updatedStudents, lastUpdated: new Date() });
+            }
+          });
+        } catch (e) {
+          console.error("保存備註失敗：", e);
+        }
+      });
+
+      importNamesButton.addEventListener('click', async () => {
+        if (!currentClassId) return;
+        const names = studentNamesInput.value.trim().split('\n').filter(name => name.trim() !== '');
+        if (names.length === 0) return;
+        
+        const classDocRef = doc(db, `artifacts/${appId}/public/data/classes`, currentClassId);
+        try {
+          await runTransaction(db, async (transaction) => {
+            const classDoc = await transaction.get(classDocRef);
+            if (!classDoc.exists()) throw "Class does not exist!";
+            const classData = classDoc.data();
+            const existingStudents = classData.students || [];
+
+            const newStudents = names.map(name => ({
+              id: crypto.randomUUID(),
+              name: name.trim(),
+              errors: Object.fromEntries(Object.keys(errorCategories).map(cat => [cat, {}])),
+              notes: '',
+              lastUpdated: new Date()
+            }));
+
+            transaction.update(classDocRef, { 
+              students: [...existingStudents, ...newStudents], 
+              lastUpdated: new Date() 
+            });
+          });
+          studentNamesInput.value = '';
+          showMessage('成功', '學生名單已成功匯入！');
+        } catch (e) {
+          console.error("匯入學生失敗：", e);
+          showMessage('匯入失敗', '無法匯入學生名單。');
+        }
+      });
+      
+      addClassButton.addEventListener('click', () => {
+        newClassNameInput.value = '';
+        addClassModal.classList.remove('hidden');
+      });
+
+      confirmAddClassButton.addEventListener('click', async () => {
+        const className = newClassNameInput.value.trim();
+        if (className) {
+          try {
+            const newDocRef = doc(collection(db, `artifacts/${appId}/public/data/classes`));
+            await setDoc(newDocRef, {
+              name: className,
+              students: [],
+              lastUpdated: new Date()
+            });
+            addClassModal.classList.add('hidden');
+            showMessage('成功', `班級「${className}」已新增。`);
+          } catch (e) {
+            console.error("新增班級失敗：", e);
+          }
+        }
+      });
+      cancelAddClassButton.addEventListener('click', () => addClassModal.classList.add('hidden'));
+
+      deleteClassButton.addEventListener('click', async () => {
+        if (!currentClassId) return;
+        const className = allClasses[currentClassId].name;
+        const shouldDelete = await showConfirm('確認刪除', `您確定要永久刪除班級「${className}」及其所有學生資料嗎？`);
+        if (shouldDelete) {
+          try {
+            await deleteDoc(doc(db, `artifacts/${appId}/public/data/classes`, currentClassId));
+            currentClassId = null;
+            showMessage('成功', '班級已刪除。');
+          } catch (e) {
+            console.error("刪除班級失敗：", e);
+          }
+        }
+      });
+      
+      async function deleteStudent(studentId) {
+        const student = allClasses[currentClassId].students.find(s => s.id === studentId);
+        if (!student) return;
+
+        const shouldDelete = await showConfirm('確認刪除', `您確定要刪除學生「${student.name}」嗎？`);
+        if (shouldDelete) {
+          try {
+            const classDocRef = doc(db, `artifacts/${appId}/public/data/classes`, currentClassId);
+            await runTransaction(db, async (transaction) => {
+              const classDoc = await transaction.get(classDocRef);
+              const updatedStudents = classDoc.data().students.filter(s => s.id !== student.id);
+              transaction.update(classDocRef, { students: updatedStudents, lastUpdated: new Date() });
+            });
+            studentDetailModal.classList.add('hidden');
+            showMessage('成功', '學生已刪除。');
+          } catch (e) {
+            console.error("刪除學生失敗：", e);
+          }
+        }
+      }
+
+      exportDataButton.addEventListener('click', () => {
+        const dataStr = JSON.stringify(allClasses, null, 2);
+        const blob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `字母錯誤追蹤資料_${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      });
+
+      importDataButton.addEventListener('click', () => importFileInput.click());
+
+      importFileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+          try {
+            const importedData = JSON.parse(event.target.result);
+            if (typeof importedData !== 'object' || importedData === null || Array.isArray(importedData)) {
+              throw new Error('無效的資料格式');
+            }
+            
+            const shouldImport = await showConfirm('確認匯入', '匯入新資料將會覆蓋現有所有班級資料，您確定嗎？');
+            if (shouldImport) {
+              const classesCollection = collection(db, `artifacts/${appId}/public/data/classes`);
+              const existingDocs = await getDocs(classesCollection);
+              
+              // 使用 writeBatch 避免 Transaction 讀寫順序問題
+              const batch = writeBatch(db);
+              existingDocs.forEach(d => batch.delete(d.ref));
+
+              for (const classId in importedData) {
+                const classData = importedData[classId];
+                if (classData && classData.name) {
+                  const sanitizedStudents = (classData.students || []).map(student => ({
+                    id: student.id || crypto.randomUUID(),
+                    name: student.name,
+                    errors: student.errors || {},
+                    notes: student.notes || '',
+                    lastUpdated: student.lastUpdated ? new Date(student.lastUpdated) : new Date()
+                  }));
+
+                  batch.set(doc(classesCollection, classId), {
+                    name: classData.name,
+                    students: sanitizedStudents,
+                    lastUpdated: new Date()
+                  });
+                }
+              }
+              await batch.commit();
+              showMessage('成功', '資料已成功匯入！');
+            }
+          } catch (error) {
+            console.error("匯入資料失敗：", error);
+            showMessage('匯入失敗', `格式不正確：${error.message}`);
+          }
+        };
+        reader.readAsText(file);
+      });
+
+      closeMessageModalButton.addEventListener('click', () => messageModal.classList.add('hidden'));
+      closeGlobalModalButton.addEventListener('click', () => globalStatsModal.classList.add('hidden'));
+      
+      function openLetterSelectionModal(student, category) {
+        currentStudentForSelection = student;
+        currentSelectedCategory = category;
+        tempSelectedLetters.clear();
+        
+        const categoryData = errorCategories[category];
+        selectionModalTitle.textContent = `紀錄 ${student.name} 的「${categoryData.zh}」錯誤`;
+        
+        letterGrid.innerHTML = '';
+        const lettersToShow = categoryData.type === 'capital' ? allCapitalLetters : allLowercaseLetters;
+
+        lettersToShow.forEach(letter => {
+          const letterButton = document.createElement('button');
+          letterButton.className = 'letter-button inactive';
+          letterButton.textContent = letter;
+          letterButton.addEventListener('click', () => {
+            letterButton.classList.toggle('active');
+            letterButton.classList.toggle('inactive');
+            if (tempSelectedLetters.has(letter)) {
+              tempSelectedLetters.delete(letter);
+            } else {
+              tempSelectedLetters.add(letter);
+            }
+            updateSelectedLettersDisplay();
+          });
+          letterGrid.appendChild(letterButton);
+        });
+
+        updateSelectedLettersDisplay();
+        letterSelectionModal.classList.remove('hidden');
+      }
+
+      function updateSelectedLettersDisplay() {
+        selectedLettersPills.innerHTML = '';
+        if (tempSelectedLetters.size > 0) {
+          selectedLettersDisplay.classList.remove('hidden');
+          tempSelectedLetters.forEach(letter => {
+            const pill = document.createElement('span');
+            pill.className = 'bg-red-200 text-red-800 text-sm font-semibold px-3 py-1 rounded-full';
+            pill.textContent = letter;
+            selectedLettersPills.appendChild(pill);
+          });
+          saveSelectionModalButton.disabled = false;
+          saveSelectionModalButton.classList.remove('opacity-50', 'cursor-not-allowed');
+        } else {
+          selectedLettersDisplay.classList.add('hidden');
+          saveSelectionModalButton.disabled = true;
+          saveSelectionModalButton.classList.add('opacity-50', 'cursor-not-allowed');
+        }
+      }
+
+      window.closeLetterSelectionModal = () => letterSelectionModal.classList.add('hidden');
+
+      saveSelectionModalButton.addEventListener('click', async () => {
+        if (tempSelectedLetters.size === 0) return;
+        await updateLetterErrors(currentStudentForSelection.id, currentSelectedCategory, tempSelectedLetters);
+        letterSelectionModal.classList.add('hidden');
+        showMessage('成功', '錯誤記錄已儲存！');
+      });
+      
+      cancelSelectionModalButton.addEventListener('click', () => closeLetterSelectionModal());
+    });
+  </script>
+</body>
+</html>
